@@ -2,7 +2,14 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 ## Getting Started
 
-First, run the development server:
+1. First, create `.env ` file in the root directory and add the following variables:
+
+```
+NEXT_PUBLIC_BICONOMY_API_KEY=YOUR_BICONOMY_API_KEY
+NEXT_PUBLIC_CONTRACT_ADDRESS=YOUT_CONTRACT_ADDRESS
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev

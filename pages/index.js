@@ -5,7 +5,7 @@ import Head from 'next/head';
 import Image from 'next/image';
 import styles from '../styles/Home.module.css';
 
-const CONTRACT_ADDRESS = "0x6E0924dD1dc89E51afAd8D656a037CF6E70DEF1e";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const ABI = [
   {
     "inputs": [
@@ -16,7 +16,7 @@ const ABI = [
       },
       {
         "internalType": "address",
-        "name": "trustedForwarder",
+        "name": "_trustedForwarder",
         "type": "address"
       }
     ],
@@ -66,6 +66,19 @@ const ABI = [
     "name": "setGreeting",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "trustedForwarder",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   }
 ];
