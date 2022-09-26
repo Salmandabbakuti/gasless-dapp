@@ -71,7 +71,7 @@ const ABI = [
 ];
 
 export default function Home() {
-  const [greeting, setGreeting] = useState("Hello");
+  const [greeting, setGreeting] = useState("");
   const [greetingInput, setGreetingInput] = useState(null);
   const [contract, setContract] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -157,7 +157,7 @@ export default function Home() {
       <main className={styles.main}>
         {isConnected ? (
           <div className={styles.greeterContainer}>
-            <h3>{greeting}</h3>
+            <h3>{greeting || "Loading.."}</h3>
             <input type="text" className={styles.greeterInput} placeholder='Type your greeting' onChange={(e) => setGreetingInput(e.target.value)} />
             <button
               className={styles.button}
