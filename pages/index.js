@@ -1,8 +1,151 @@
-import Head from 'next/head'
-import Image from 'next/image'
-import styles from '../styles/Home.module.css'
+import { useEffect, useState } from 'react';
+import { ethers, Contract } from 'ethers';
+import { Biconomy } from "@biconomy/mexa";
+import Head from 'next/head';
+import Image from 'next/image';
+import styles from '../styles/Home.module.css';
+
+const CONTRACT_ADDRESS = "0x6E0924dD1dc89E51afAd8D656a037CF6E70DEF1e";
+const ABI = [
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_greeting",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "trustedForwarder",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "greeting",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "forwarder",
+        "type": "address"
+      }
+    ],
+    "name": "isTrustedForwarder",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_greeting",
+        "type": "string"
+      }
+    ],
+    "name": "setGreeting",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
 
 export default function Home() {
+  const [greeting, setGreeting] = useState("Hello");
+  const [greetingInput, setGreetingInput] = useState(null);
+  const [contract, setContract] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [account, setAccount] = useState(null);
+
+  useEffect(() => {
+    getGreeting();
+  }, [isConnected, contract]);
+
+  const connectWallet = async () => {
+    try {
+      if (window.ethereum) {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const contract = new Contract(CONTRACT_ADDRESS, ABI, provider);
+        setContract(contract);
+        setIsConnected(true);
+        setAccount(accounts[0]);
+        console.log("Connected");
+      } else {
+        console.log("Install MetaMask");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleSumbitGreeting = async () => {
+    if (!isConnected) return alert("Please connect to wallet");
+    if (!greetingInput) return alert("Please enter a greeting");
+    // 
+    try {
+      const biconomy = new Biconomy(
+        window.ethereum,
+        {
+          apiKey: process.env.NEXT_PUBLIC_BICONOMY_API_KEY,
+          debug: true,
+          contractAddresses: [CONTRACT_ADDRESS]
+        }
+      );
+      const provider = biconomy.provider;
+
+      const contractInstance = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        ABI,
+        biconomy.ethersProvider
+      );
+      await biconomy.init();
+
+      const { data } = await contractInstance.populateTransaction.setGreeting(greeting);
+
+      let txParams = {
+        data: data,
+        to: CONTRACT_ADDRESS,
+        from: account,
+        signatureType: "EIP712_SIGN",
+      };
+
+      await provider.send("eth_sendTransaction", [txParams]);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const getGreeting = () => {
+    if (contract) {
+      contract.greeting().then((greeting) => {
+        setGreeting(greeting);
+      });
+    } else {
+      console.error("Contract not loaded");
+    }
+  };
+
   return (
     <div className={styles.container}>
       <Head>
@@ -12,44 +155,20 @@ export default function Home() {
       </Head>
 
       <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
-
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
-
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h2>Documentation &rarr;</h2>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h2>Learn &rarr;</h2>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/canary/examples"
-            className={styles.card}
-          >
-            <h2>Examples &rarr;</h2>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h2>Deploy &rarr;</h2>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
+        {isConnected ? (
+          <div className={styles.greeterContainer}>
+            <h3>{greeting}</h3>
+            <input type="text" className={styles.greeterInput} placeholder='Type your greeting' onChange={(e) => setGreetingInput(e.target.value)} />
+            <button
+              className={styles.button}
+              onClick={handleSumbitGreeting}
+            >
+              Submit
+            </button>
+          </div>
+        ) : (
+          <button className={styles.button} onClick={connectWallet}>Connect Wallet</button>
+        )}
       </main>
 
       <footer className={styles.footer}>
@@ -65,5 +184,5 @@ export default function Home() {
         </a>
       </footer>
     </div>
-  )
+  );
 }
