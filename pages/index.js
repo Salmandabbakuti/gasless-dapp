@@ -7,91 +7,25 @@ import styles from '../styles/Home.module.css';
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
 const ABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_greeting",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "_trustedForwarder",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
-    "inputs": [],
-    "name": "greeting",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "forwarder",
-        "type": "address"
-      }
-    ],
-    "name": "isTrustedForwarder",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_greeting",
-        "type": "string"
-      }
-    ],
-    "name": "setGreeting",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "trustedForwarder",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
+  "function greeting() view returns (string)",
+  "function isTrustedForwarder(address forwarder) view returns (bool)",
+  "function setGreeting(string _greeting)",
+  "function trustedForwarder() view returns (address)"
 ];
 
 export default function Home() {
   const [greeting, setGreeting] = useState("");
-  const [greetingInput, setGreetingInput] = useState(null);
+  const [greetingInput, setGreetingInput] = useState("");
   const [contract, setContract] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [account, setAccount] = useState(null);
+  const [logMessage, setLogMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getGreeting();
+    if (isConnected && contract) {
+      getGreeting();
+    }
   }, [isConnected, contract]);
 
   const connectWallet = async () => {
@@ -117,6 +51,7 @@ export default function Home() {
     if (!greetingInput) return alert("Please enter a greeting");
     // 
     try {
+      setLoading(true);
       const biconomy = new Biconomy(
         window.ethereum,
         {
@@ -125,8 +60,8 @@ export default function Home() {
           contractAddresses: [CONTRACT_ADDRESS]
         }
       );
-      const provider = biconomy.provider;
 
+      const provider = biconomy.provider;
       const contractInstance = new ethers.Contract(
         CONTRACT_ADDRESS,
         ABI,
@@ -134,7 +69,13 @@ export default function Home() {
       );
       await biconomy.init();
 
-      const { data } = await contractInstance.populateTransaction.setGreeting(greeting);
+      // biconomy.onEvent(biconomy.READY, () => {
+      //   console.log("Biconomy is ready");
+      // }).onEvent(biconomy.ERROR, (error, message) => {
+      //   console.log("Biconomy error", error, message);
+      // });
+
+      const { data } = await contractInstance.populateTransaction.setGreeting(greetingInput);
 
       let txParams = {
         data: data,
@@ -144,7 +85,31 @@ export default function Home() {
       };
 
       await provider.send("eth_sendTransaction", [txParams]);
+      setLogMessage("Transaction sent");
+      biconomy.on("txHashGenerated", (data) => {
+        setLogMessage("Transaction hash generated");
+        console.log("txHashGenerated", data);
+      });
+
+      biconomy.on("txMined", (data) => {
+        setLogMessage("Transaction mined");
+        console.log("txMined", data);
+        getGreeting();
+      });
+
+      biconomy.on("onError", (err) => {
+        setLogMessage(`Transaction failed: ${err.message}`);
+        console.error("onError", err);
+      });
+
+      biconomy.on("txHashChanged", (data) => {
+        setLogMessage("Transaction hash changed");
+        console.log("txHashChanged", data);
+      });
+      setLoading(false);
     } catch (error) {
+      setLoading(false);
+      setLogMessage(`Transaction failed: ${error.message}`);
       console.log(error);
     }
   };
@@ -152,8 +117,9 @@ export default function Home() {
   const getGreeting = () => {
     if (contract) {
       contract.greeting().then((greeting) => {
+        console.log('greeting from contract:', greeting);
         setGreeting(greeting);
-      });
+      }).catch((error) => console.log('error fetching greeting', error));
     } else {
       console.error("Contract not loaded");
     }
@@ -162,12 +128,19 @@ export default function Home() {
   return (
     <div className={styles.container}>
       <Head>
-        <title>Create Next App</title>
+        <title>Gasless Dapp</title>
         <meta name="description" content="Generated by create next app" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <main className={styles.main}>
+        <h1 className={styles.title}>
+          Welcome to <span>Gasless Dapp</span>
+        </h1>
+
+        <p className={styles.description}>
+          A Dapp is cooler when it is gasless. A simple Dapp to demonstrate gasless transactions using Biconomy
+        </p>
         {isConnected ? (
           <div className={styles.greeterContainer}>
             <h3>{greeting || "Loading.."}</h3>
@@ -175,6 +148,7 @@ export default function Home() {
             <button
               className={styles.button}
               onClick={handleSumbitGreeting}
+              disabled={loading}
             >
               Submit
             </button>
@@ -182,18 +156,13 @@ export default function Home() {
         ) : (
           <button className={styles.button} onClick={connectWallet}>Connect Wallet</button>
         )}
+        {loading && <p>Loading...</p>}
+        <p>{logMessage}</p>
       </main>
 
       <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <span className={styles.logo}>
-            <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-          </span>
+        <a href="https://github.com/Salmandabbakuti" target="_blank" rel="noopener noreferrer">
+          © 2022 Salman Dabbakuti. Built with Biconomy
         </a>
       </footer>
     </div>
