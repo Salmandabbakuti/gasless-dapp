@@ -10,6 +10,7 @@ const ABI = [
   "function greeting() view returns (string)",
   "function isTrustedForwarder(address forwarder) view returns (bool)",
   "function setGreeting(string _greeting)",
+  "function lastCaller() view returns (address)",
   "function trustedForwarder() view returns (address)"
 ];
 
